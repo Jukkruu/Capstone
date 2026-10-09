@@ -1,0 +1,406 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Internal BigC users (Admin / Editor / GCP / User) ───────────────────────
+model BigcUser {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  displayName String
+  passwordHash String
+  role        BigcRole
+  department  String?
+  employeeNo  String?  @unique
+  status      UserStatus @default(ACTIVE)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  registeredSuppliers Supplier[] @relation("RegisteredBy")
+  auditLogs           AuditLog[]
+
+  @@map("bigc_users")
+}
+
+enum BigcRole {
+  ADMIN
+  EDITOR
+  GCP
+  USER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// ─── Vendors / Suppliers ──────────────────────────────────────────────────────
+model Supplier {
+  id                  String         @id @default(uuid())
+  supplierCode        String?        @unique
+  name                String
+  taxId               String?        @unique
+  contactEmail        String         @unique
+  contactPhone        String?
+  address             String?
+  leadTimeDays        Int?
+  contractPrice       Decimal?       @db.Decimal(15, 2)
+  passwordHash        String
+  mustChangePassword  Boolean        @default(true)
+  accountStatus       SupplierStatus @default(PENDING)
+  registrationType    RegistrationType @default(SINGLE)
+  registeredById      String?
+  registeredBy        BigcUser?      @relation("RegisteredBy", fields: [registeredById], references: [id])
+  registeredAt        DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  equipment   Equipment[]
+  spareParts  SparePart[]
+  auditLogs   AuditLog[]
+
+  @@map("suppliers")
+}
+
+enum SupplierStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+}
+
+enum RegistrationType {
+  BULK
+  SINGLE
+}
+
+// ─── Locations ────────────────────────────────────────────────────────────────
+model Location {
+  id           Int    @id @default(autoincrement())
+  storeCode    String @unique
+  buildingZone String?
+  company      String?
+  businessUnit String?
+  branch       String?
+  floor        String?
+
+  equipment Equipment[]
+
+  @@map("locations")
+}
+
+// ─── CMS Masters (read-only mirrors, refreshed by batch) ─────────────────────
+model AssetTypeMaster {
+  id           String   @id
+  name         String
+  isActive     Boolean  @default(true)
+  lastSyncAt   DateTime @default(now())
+
+  equipment Equipment[]
+
+  @@map("asset_type_master")
+}
+
+model ServiceTypeMaster {
+  id           String   @id
+  name         String
+  isActive     Boolean  @default(true)
+  lastSyncAt   DateTime @default(now())
+
+  equipment Equipment[]
+
+  @@map("service_type_master")
+}
+
+// ─── Equipment Master ─────────────────────────────────────────────────────────
+model Equipment {
+  id              String   @id @default(uuid())
+  assetCode       String?  @unique
+  tagNumber       String?  @unique
+  nameTh          String?
+  nameEn          String
+  category        String?
+  subCategory     String?
+  mtnCode         String?
+  brand           String?
+  model           String?
+  subModel        String?
+  equipmentType   String?
+  serialNo        String?
+  shortSpec       String?
+  fullSpec        Json?
+  capacity        String?
+  powerRequirement String?
+  utilityRequirement String?
+  dimensions      String?
+  operatingCondition String?
+  standards       String?
+  functionalReqs  String?
+  mfgDate         String?
+  countryOfOrigin String?
+  productSeries   String?
+
+  // Installation & operational
+  installDate     DateTime?
+  status          EquipmentStatus @default(ACTIVE)
+  criticality     CriticalityLevel?
+
+  // Warranty
+  warrantyMonths  Int?
+  warrantyEndDate DateTime?
+
+  // Internal enrichment (filled by User/GCP after selection)
+  company         String?
+  businessUnit    String?
+  branchSiteCode  String?
+  responsiblePerson String?
+  costCenter      String?
+  glAccount       String?
+  subAccount      String?
+  wbs             String?
+  contractNo      String?
+  poNo            String?
+
+  // Lifecycle / TCO
+  usefulLifeYr    Int?
+  economicLifeYr  Int?
+  designLife      String?
+  overhaul        String?
+  residualValuePct Int?
+  endOfSupportYr  Int?
+  disposalGuide   String?
+  hoursPerYear    Int?
+
+  // Maintenance budget
+  purchasePrice   Decimal? @db.Decimal(15, 2)
+  maintCostPerYear Decimal? @db.Decimal(15, 2)
+  pmPackagePrice  String?
+  consumableCostPerYear Decimal? @db.Decimal(15, 2)
+  laborRate       Decimal? @db.Decimal(15, 2)
+  energyKwhPerHr  Decimal? @db.Decimal(10, 4)
+  priceEscalationPct Decimal? @db.Decimal(5, 2)
+  tcoTotal        Decimal? @db.Decimal(15, 2)
+
+  // Carbon credit
+  emissionFactor  Decimal? @db.Decimal(10, 4)
+  carbonCreditPrice Decimal? @db.Decimal(15, 2)
+  co2PerYear      Decimal? @db.Decimal(15, 4)
+  co2Lifetime     Decimal? @db.Decimal(15, 4)
+  carbonCreditValue Decimal? @db.Decimal(15, 2)
+
+  // ERMA record lifecycle
+  recordStatus    RecordStatus @default(DRAFT)
+  cmsSyncStatus   String?
+  faSyncStatus    String?
+
+  // Pre-purchase portal status
+  submissionStatus SubmissionStatus @default(DRAFT)
+  nominatedAt     DateTime?
+  nominatedBy     String?
+  returnReason    String?
+  returnedAt      DateTime?
+  returnedBy      String?
+
+  // Relations
+  supplierId      String?
+  supplier        Supplier? @relation(fields: [supplierId], references: [id])
+  locationId      Int?
+  location        Location? @relation(fields: [locationId], references: [id])
+  assetTypeId     String?
+  assetType       AssetTypeMaster? @relation(fields: [assetTypeId], references: [id])
+  serviceTypeId   String?
+  serviceType     ServiceTypeMaster? @relation(fields: [serviceTypeId], references: [id])
+  parentId        String?
+  parent          Equipment? @relation("EquipmentTree", fields: [parentId], references: [id])
+  children        Equipment[] @relation("EquipmentTree")
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  updatedBy       String?
+
+  bom         Bom[]
+  warranty    Warranty[]
+  spareParts  SparePart[]
+  syncLogs    SyncLog[]
+  auditLogs   AuditLog[]
+  documents   Document[]
+
+  @@map("equipment")
+}
+
+enum EquipmentStatus {
+  ACTIVE
+  IN_REPAIR
+  DECOMMISSIONED
+}
+
+enum CriticalityLevel {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum RecordStatus {
+  DRAFT
+  ACTIVE
+  QUEUED
+  SYNCED
+  SYNC_FAILED
+  INACTIVE
+}
+
+enum SubmissionStatus {
+  DRAFT
+  SUBMITTED
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  NOMINATED
+  EXPORTED
+}
+
+// ─── Spare Parts Catalog ──────────────────────────────────────────────────────
+model SparePart {
+  id               String          @id @default(uuid())
+  partNumber       String          @unique
+  name             String
+  category         PartCategory?
+  partType         String?
+  model            String?
+  warrantyMonths   Int?
+  unitOfMeasure    String?
+  standardCost     Decimal?        @db.Decimal(15, 2)
+  unitPrice        Decimal?        @db.Decimal(15, 2)
+  minStockLevel    Int?
+  maxStockLevel    Int?
+  minStockRecommend Int?
+  partAvailabilityYr Int?
+  currency         String?         @default("THB")
+  leadTimeDays     String?
+  replacementInterval String?
+  ownerId          String?
+  owner            Supplier?       @relation(fields: [ownerId], references: [id])
+  equipmentId      String?
+  equipment        Equipment?      @relation(fields: [equipmentId], references: [id])
+  createdAt        DateTime        @default(now())
+
+  bom Bom[]
+
+  @@map("spare_parts")
+}
+
+enum PartCategory {
+  CRITICAL
+  WEAR
+  CONSUMABLE
+}
+
+// ─── BOM (Equipment ↔ SparePart link) ────────────────────────────────────────
+model Bom {
+  id               String    @id @default(uuid())
+  equipmentId      String
+  equipment        Equipment @relation(fields: [equipmentId], references: [id])
+  partId           String
+  part             SparePart @relation(fields: [partId], references: [id])
+  quantityRequired Int
+  isCritical       Boolean   @default(false)
+  partSerialNo     String?
+  warrantyStartDate DateTime?
+  warrantyEndDate   DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@map("bom")
+}
+
+// ─── Warranty ─────────────────────────────────────────────────────────────────
+model Warranty {
+  id              String    @id @default(uuid())
+  equipmentId     String
+  equipment       Equipment @relation(fields: [equipmentId], references: [id])
+  warrantyStart   DateTime?
+  warrantyEnd     DateTime?
+  warrantyScope   String?
+  warrantyCondition String?
+  extendedWarrantyOption String?
+  slaResponseHr   Int?
+  slaRestoreHr    Int?
+  serviceCenter   String?
+  training        String?
+  createdAt       DateTime  @default(now())
+
+  @@map("warranties")
+}
+
+// ─── File Attachments ─────────────────────────────────────────────────────────
+model Document {
+  id          String    @id @default(uuid())
+  equipmentId String
+  equipment   Equipment @relation(fields: [equipmentId], references: [id])
+  fileName    String
+  fileUrl     String
+  fileType    String?
+  fileSize    Int?
+  uploadedAt  DateTime  @default(now())
+
+  @@map("documents")
+}
+
+// ─── Sync Log (ERMA batch jobs) ───────────────────────────────────────────────
+model SyncLog {
+  id           String    @id @default(uuid())
+  batchRunId   String
+  equipmentId  String?
+  equipment    Equipment? @relation(fields: [equipmentId], references: [id])
+  targetSystem TargetSystem
+  direction    SyncDirection
+  status       SyncStatus
+  errorMessage String?
+  runAt        DateTime  @default(now())
+
+  @@map("sync_logs")
+}
+
+enum TargetSystem {
+  CMS
+  FIXED_ASSET
+}
+
+enum SyncDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum SyncStatus {
+  SUCCESS
+  FAILED
+}
+
+// ─── Audit Log ────────────────────────────────────────────────────────────────
+model AuditLog {
+  id          String    @id @default(uuid())
+  userId      String?
+  bigcUser    BigcUser? @relation(fields: [userId], references: [id])
+  supplierId  String?
+  supplier    Supplier? @relation(fields: [supplierId], references: [id])
+  equipmentId String?
+  equipment   Equipment? @relation(fields: [equipmentId], references: [id])
+  action      AuditAction
+  oldValue    Json?
+  newValue    Json?
+  timestamp   DateTime  @default(now())
+
+  @@map("audit_logs")
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  APPROVE
+  REJECT
+  NOMINATE
+  EXPORT
+  DEACTIVATE
+  REACTIVATE
+}
