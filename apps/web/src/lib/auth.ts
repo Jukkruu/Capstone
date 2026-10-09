@@ -13,20 +13,25 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
-        const user = await prisma.bigcUser.findUnique({ where: { email: credentials.email } });
-        if (!user || user.status === 'INACTIVE') return null;
-        const valid = await bcrypt.compare(credentials.password, user.passwordHash);
-        if (!valid) return null;
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.displayName,
-          role: user.role as string,
-          type: 'bigc',
-          department: user.department,
-          employeeNo: user.employeeNo,
-        };
+        try {
+          if (!credentials?.email || !credentials?.password) return null;
+          const user = await prisma.bigcUser.findUnique({ where: { email: credentials.email } });
+          if (!user || user.status === 'INACTIVE') return null;
+          const valid = await bcrypt.compare(credentials.password, user.passwordHash);
+          if (!valid) return null;
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.displayName,
+            role: user.role as string,
+            type: 'bigc',
+            department: user.department,
+            employeeNo: user.employeeNo,
+          };
+        } catch (err) {
+          console.error('[Auth BigC Error]', err);
+          return null;
+        }
       },
     }),
     CredentialsProvider({
@@ -37,19 +42,24 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
-        const supplier = await prisma.supplier.findUnique({ where: { contactEmail: credentials.email } });
-        if (!supplier || supplier.accountStatus === 'INACTIVE') return null;
-        const valid = await bcrypt.compare(credentials.password, supplier.passwordHash);
-        if (!valid) return null;
-        return {
-          id: supplier.id,
-          email: supplier.contactEmail,
-          name: supplier.name,
-          role: 'SUPPLIER',
-          type: 'supplier',
-          mustChangePassword: supplier.mustChangePassword,
-        };
+        try {
+          if (!credentials?.email || !credentials?.password) return null;
+          const supplier = await prisma.supplier.findUnique({ where: { contactEmail: credentials.email } });
+          if (!supplier || supplier.accountStatus === 'INACTIVE') return null;
+          const valid = await bcrypt.compare(credentials.password, supplier.passwordHash);
+          if (!valid) return null;
+          return {
+            id: supplier.id,
+            email: supplier.contactEmail,
+            name: supplier.name,
+            role: 'SUPPLIER',
+            type: 'supplier',
+            mustChangePassword: supplier.mustChangePassword,
+          };
+        } catch (err) {
+          console.error('[Auth Supplier Error]', err);
+          return null;
+        }
       },
     }),
   ],
