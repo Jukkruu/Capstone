@@ -1,0 +1,8 @@
+[build]
+buildCommand = "npm run build --workspace=apps/api"
+
+[deploy]
+startCommand = "node apps/api/dist/main"
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"

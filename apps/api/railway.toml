@@ -1,8 +1,5 @@
-[build]
-builder = "NIXPACKS"
-
 [deploy]
 startCommand = "node dist/main"
-healthcheckPath = "/api/auth/profile"
+healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"

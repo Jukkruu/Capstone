@@ -19,6 +19,8 @@ async function bootstrap() {
     credentials: true,
   });
 
+  app.getHttpAdapter().get('/health', (_req: any, res: any) => res.json({ status: 'ok' }));
+
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.setGlobalPrefix('api');
 
