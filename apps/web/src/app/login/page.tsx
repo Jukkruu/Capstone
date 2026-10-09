@@ -2,13 +2,12 @@
 
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 type LoginType = 'bigc' | 'supplier';
 
 export default function LoginPage() {
   const router = useRouter();
-  const params = useSearchParams();
   const [loginType, setLoginType] = useState<LoginType>('bigc');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

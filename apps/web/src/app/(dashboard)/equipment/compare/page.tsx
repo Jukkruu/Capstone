@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
@@ -52,6 +52,14 @@ function fmt(val: any, currency?: boolean, isDate?: boolean): string {
 }
 
 export default function ComparePage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-gray-400">Loading comparison…</div>}>
+      <CompareContent />
+    </Suspense>
+  );
+}
+
+function CompareContent() {
   const params = useSearchParams();
   const ids = (params.get('ids') || '').split(',').filter(Boolean);
   const [items, setItems] = useState<any[]>([]);

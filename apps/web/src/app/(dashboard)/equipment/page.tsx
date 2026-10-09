@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -10,6 +10,14 @@ import { STATUS_COLORS, CATEGORIES } from '@/types';
 const STATUSES = ['SUBMITTED', 'PENDING_REVIEW', 'APPROVED', 'NOMINATED', 'REJECTED', 'EXPORTED'];
 
 export default function EquipmentListPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-gray-400">Loading…</div>}>
+      <EquipmentContent />
+    </Suspense>
+  );
+}
+
+function EquipmentContent() {
   const { data: session } = useSession();
   const user = session?.user as any;
   const router = useRouter();
